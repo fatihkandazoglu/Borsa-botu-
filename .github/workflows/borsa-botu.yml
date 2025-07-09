@@ -25,4 +25,4 @@ jobs:
 
     - name: Botu çalıştır
       run: |
-        python main.py
+        python Main.py
