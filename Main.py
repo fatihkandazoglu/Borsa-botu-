@@ -49,3 +49,4 @@ if __name__ == '__main__':
 print("Telegram mesajı gönderiliyor...")
 telegram_mesaj_gonder("Test mesajı: GitHub Actions çalıştı!")
 print("Telegram mesajı gönderildi.")
+print(response.text)
