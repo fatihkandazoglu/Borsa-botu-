@@ -14,7 +14,7 @@ jobs:
     - name: Python kur
       uses: actions/setup-python@v4
       with:
-        python-version: 3.10
+        python-version: '3.10'  # <-- BURASI ÖNEMLİ
 
     - name: Gerekli paketleri kur
       run: |
