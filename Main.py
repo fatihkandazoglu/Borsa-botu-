@@ -6,9 +6,9 @@ from datetime import datetime
 
 # TELEGRAM BOT AYARLARI
 BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
-CHAT_ID = '1608045019'
+CHAT_ID = '1608045019'  # Senin chat ID’n
 
-# HİSSE SENEDİ LİSTESİ
+# HİSSE SENEDİ (örnek: BIST100 listesi veya tek hisse)
 HISSE_LISTESI = ['THYAO', 'SISE', 'ASELS', 'KRDMD']
 
 def telegram_mesaj_gonder(mesaj):
@@ -20,11 +20,6 @@ def teknik_analiz(hisse):
     try:
         url = f'https://www.borsagrafik.com/api/indicators/{hisse}?interval=1d'
         response = requests.get(url)
-
-        # API'den gelen ham veriyi yazdır (hata ayıklama)
-        print(f"{hisse} - API Cevabı:")
-        print(response.text)
-
         df = pd.DataFrame(response.json()['data'])
 
         df['ema'] = df['close'].ewm(span=10).mean()
@@ -36,9 +31,7 @@ def teknik_analiz(hisse):
             return f"📉 {hisse}: SAT"
         else:
             return f"➖ {hisse}: NÖTR"
-
-    except Exception as e:
-        print(f"Hata: {hisse} verisi alınamadı. {e}")
+    except:
         return f"⚠️ {hisse} verisi alınamadı."
 
 def main():
@@ -48,9 +41,7 @@ def main():
         mesajlar.append(sinyal)
 
     final_mesaj = "\n".join(mesajlar)
-    print("Telegram mesajı gönderiliyor...")
     telegram_mesaj_gonder(final_mesaj)
-    print("Telegram mesajı gönderildi.")
 
 if __name__ == '__main__':
     main()
