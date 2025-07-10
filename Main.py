@@ -20,19 +20,21 @@ def teknik_analiz(hisse):
         df = yf.download(hisse, period="2mo", interval="1d")
         df.dropna(inplace=True)
 
-        if len(df) < 15:
+        if df.shape[0] < 15:
             return f"⚠️ {hisse} verisi yetersiz."
 
         df['EMA'] = df['Close'].ewm(span=10).mean()
         delta = df['Close'].diff()
-        gain = (delta.where(delta > 0, 0)).rolling(14).mean()
-        loss = (-delta.where(delta < 0, 0)).rolling(14).mean()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = -delta.clip(upper=0).rolling(14).mean()
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
-        close = df['Close'].iloc[-1]
-        ema = df['EMA'].iloc[-1]
-        rsi = df['RSI'].iloc[-1]
+        df.dropna(inplace=True)  # <-- EMA ve RSI sonrası boşlukları temizle
+
+        close = float(df['Close'].iloc[-1])
+        ema = float(df['EMA'].iloc[-1])
+        rsi = float(df['RSI'].iloc[-1])
 
         if close > ema and rsi < 70:
             return f"📈 {hisse}: AL"
