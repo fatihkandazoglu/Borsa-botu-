@@ -1,6 +1,8 @@
 name: Run Borsa Botu
 
 on:
+  schedule:
+    - cron: '0 9 * * *'  # Türkiye saatiyle 12:00
   workflow_dispatch:
 
 jobs:
@@ -14,12 +16,11 @@ jobs:
     - name: Python kur
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'  # <-- BURASI ÖNEMLİ
+        python-version: '3.10'
 
     - name: Gerekli paketleri kur
       run: |
-        pip install yfinance
-        pip install requests
+        pip install -r requirements.txt
 
     - name: Botu çalıştır
       run: python Main.py
