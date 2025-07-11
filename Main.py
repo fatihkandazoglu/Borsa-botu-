@@ -3,11 +3,9 @@ import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 
-# TELEGRAM BOT AYARLARI
 BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
 CHAT_ID = '1608045019'
 
-# HİSSE LİSTESİ
 HISSE_LISTESI = ['THYAO.IS', 'SISE.IS', 'ASELS.IS', 'KRDMD.IS']
 
 def telegram_mesaj_gonder(mesaj):
@@ -24,11 +22,14 @@ def teknik_analiz(hisse):
             return f"⚠️ {hisse} verisi yetersiz."
 
         df['EMA'] = df['Close'].ewm(span=10).mean()
+
         delta = df['Close'].diff()
         gain = delta.where(delta > 0, 0)
         loss = -delta.where(delta < 0, 0)
+
         avg_gain = gain.rolling(14).mean()
         avg_loss = loss.rolling(14).mean()
+
         rs = avg_gain / avg_loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
@@ -36,24 +37,22 @@ def teknik_analiz(hisse):
         ema = df['EMA'].iloc[-1]
         rsi = df['RSI'].iloc[-1]
 
-        if close > ema and rsi < 70:
+        if float(close) > float(ema) and float(rsi) < 70:
             return f"📈 {hisse}: AL"
-        elif close < ema and rsi > 30:
+        elif float(close) < float(ema) and float(rsi) > 30:
             return f"📉 {hisse}: SAT"
         else:
             return f"➖ {hisse}: NÖTR"
+
     except Exception as e:
         return f"⚠️ {hisse} verisi alınamadı. Hata: {str(e)}"
 
 def main():
     simdi = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
     mesajlar = [f"📊 {simdi} GÜNLÜK SİNYALLER"]
-
     for hisse in HISSE_LISTESI:
         mesajlar.append(teknik_analiz(hisse))
-
-    final_mesaj = "\n".join(mesajlar)
-    telegram_mesaj_gonder(final_mesaj)
+    telegram_mesaj_gonder("\n".join(mesajlar))
 
 if __name__ == "__main__":
     main()
