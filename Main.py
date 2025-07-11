@@ -1,21 +1,3 @@
-import yfinance as yf
-import pandas as pd
-import requests
-from datetime import datetime, timedelta
-
-# Telegram ayarları
-BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
-CHAT_ID = '1608045019'
-
-# Hisse listesi
-HISSE_LISTESI = ['THYAO.IS', 'SISE.IS', 'ASELS.IS', 'KRDMD.IS']
-
-def telegram_mesaj_gonder(metin):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = {'chat_id': CHAT_ID, 'text': metin}
-    r = requests.post(url, data=data)
-    print(f"Telegram yanıtı: {r.status_code} - {r.text}")
-
 def teknik_analiz(hisse):
     try:
         df = yf.download(hisse, period="3mo", interval="1d")
@@ -39,6 +21,7 @@ def teknik_analiz(hisse):
         high14 = df['RSI'].rolling(14).max()
         df['StochRSI'] = (df['RSI'] - low14) / (high14 - low14) * 100
 
+        # Son değerler
         close = df['Close'].iloc[-1]
         ema = df['EMA10'].iloc[-1]
         rsi = df['RSI'].iloc[-1]
@@ -72,15 +55,3 @@ def teknik_analiz(hisse):
 
     except Exception as e:
         return f"⚠️ {hisse}: Hata - {str(e)}"
-
-def main():
-    simdi = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
-    mesajlar = [f"📊 {simdi} GÜNLÜK BORSADA SİNYAL RAPORU"]
-
-    for hisse in HISSE_LISTESI:
-        mesajlar.append(teknik_analiz(hisse))
-
-    telegram_mesaj_gonder("\n".join(mesajlar))
-
-if __name__ == "__main__":
-    main()
