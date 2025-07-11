@@ -1,20 +1,28 @@
 import yfinance as yf
+import pandas as pd
+import requests
+from datetime import datetime, timedelta
+
+BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
+CHAT_ID = '1608045019'
+
+def telegram_mesaj_gonder(metin):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    data = {'chat_id': CHAT_ID, 'text': metin, 'parse_mode': 'HTML'}
+    r = requests.post(url, data=data)
+    print(f"Telegram yanıtı: {r.status_code} - {r.text}")
 
 def teknik_analiz(hisse):
     try:
-        # 6 aylık günlük veri çek
         df = yf.download(hisse, period="6mo", interval="1d")
-        
-        # Veri kontrolü
-        if df.empty or len(df) < 50:
-            return f"⚠️ {hisse}: Yetersiz veri (veri boş veya 50 günden az)"
-        
+        if df.empty or len(df) < 200:
+            return f"⚠️ <b>{hisse}</b>: Veri yetersiz"
+
         df.dropna(inplace=True)
 
-        # Göstergeleri hesapla
         df['EMA10'] = df['Close'].ewm(span=10).mean()
-        df['MA50'] = df['Close'].rolling(window=50).mean()
-        df['MA200'] = df['Close'].rolling(window=200).mean()
+        df['MA50'] = df['Close'].rolling(50).mean()
+        df['MA200'] = df['Close'].rolling(200).mean()
 
         delta = df['Close'].diff()
         gain = delta.clip(lower=0).rolling(14).mean()
@@ -27,11 +35,11 @@ def teknik_analiz(hisse):
             (df['RSI'].rolling(14).max() - df['RSI'].rolling(14).min())
         ) * 100
 
-        # En son satırdaki değerleri al
-        latest = df.iloc[-1]
+        df = df.dropna()
+        if df.empty:
+            return f"⚠️ <b>{hisse}</b>: Hesaplamalar tamamlanamadı (NaN)"
 
-        if latest[['EMA10', 'MA50', 'MA200', 'RSI', 'StochRSI']].isnull().any():
-            return f"⚠️ {hisse}: Hesaplamalar tamamlanamadı (NaN)"
+        latest = df.iloc[-1]
 
         close = latest['Close']
         ema = latest['EMA10']
@@ -41,7 +49,6 @@ def teknik_analiz(hisse):
         ma200 = latest['MA200']
         high = latest['High']
 
-        # Sinyal üretimi
         sinyaller = []
 
         if close > ema and rsi < 70:
@@ -58,13 +65,25 @@ def teknik_analiz(hisse):
             sinyaller.append("✅ MA50 Üstü")
         if close > ma200:
             sinyaller.append("✅ MA200 Üstü")
-
         if stochrsi > 80:
             sinyaller.append("⚠️ StochRSI Yüksek")
         elif stochrsi < 20:
             sinyaller.append("🟢 StochRSI Düşük")
 
-        return f"{hisse}: {', '.join(sinyaller)}"
+        return f"<b>{hisse}</b>: {', '.join(sinyaller)}"
 
     except Exception as e:
-        return f"⚠️ {hisse}: Hata - {str(e)}"
+        return f"⚠️ <b>{hisse}</b>: Hata - {str(e)}"
+
+# Hisseler listesi
+hisseler = ["THYAO.IS", "SISE.IS", "ASELS.IS", "KRDMD.IS"]
+
+sonuclar = []
+for hisse in hisseler:
+    sonuc = teknik_analiz(hisse)
+    sonuclar.append(sonuc)
+
+tarih = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
+rapor = f"📊 <b>{tarih} GÜNLÜK SİNYALLER</b>\n\n" + "\n".join(sonuclar)
+
+telegram_mesaj_gonder(rapor)
