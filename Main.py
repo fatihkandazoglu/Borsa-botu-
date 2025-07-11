@@ -1,50 +1,47 @@
-import requests
-from datetime import datetime, timedelta
 import yfinance as yf
-import pandas as pd
-
-BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
-CHAT_ID = '1608045019'
-
-def telegram_mesaj_gonder(metin):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    data = {'chat_id': CHAT_ID, 'text': metin}
-    r = requests.post(url, data=data)
-    print(f"Telegram yanıtı: {r.status_code} - {r.text}")
 
 def teknik_analiz(hisse):
     try:
-        df = yf.download(hisse, period="3mo", interval="1d")
+        # Daha uzun periyotla veri çek, örneğin 6 ay
+        df = yf.download(hisse, period="6mo", interval="1d")
+        
+        if df.empty or len(df) < 50:
+            return f"⚠️ {hisse}: Yetersiz veri (veri boş veya 50 günden az)"
+
         df.dropna(inplace=True)
 
-        if len(df) < 60:
-            return f"⚠️ {hisse}: Veri yetersiz"
-
+        # EMA, MA, RSI hesaplamaları
         df['EMA10'] = df['Close'].ewm(span=10).mean()
-        df['MA50'] = df['Close'].rolling(50).mean()
-        df['MA200'] = df['Close'].rolling(200).mean()
+        df['MA50'] = df['Close'].rolling(window=50).mean()
+        df['MA200'] = df['Close'].rolling(window=200).mean()
 
         delta = df['Close'].diff()
-        gain = delta.where(delta > 0, 0).rolling(14).mean()
-        loss = -delta.where(delta < 0, 0).rolling(14).mean()
+        gain = delta.clip(lower=0).rolling(14).mean()
+        loss = -delta.clip(upper=0).rolling(14).mean()
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
-        low14 = df['RSI'].rolling(14).min()
-        high14 = df['RSI'].rolling(14).max()
-        df['StochRSI'] = ((df['RSI'] - low14) / (high14 - low14)) * 100
+        # Stokastik RSI hesaplaması
+        df['StochRSI'] = (
+            (df['RSI'] - df['RSI'].rolling(14).min()) /
+            (df['RSI'].rolling(14).max() - df['RSI'].rolling(14).min())
+        ) * 100
 
-        close = df['Close'].iloc[-1]
-        ema = df['EMA10'].iloc[-1]
-        rsi = df['RSI'].iloc[-1]
-        stochrsi = df['StochRSI'].iloc[-1]
-        ma50 = df['MA50'].iloc[-1]
-        ma200 = df['MA200'].iloc[-1]
-        high = df['High'].iloc[-1]
+        # En son satırda eksik veri varsa hata döndür
+        latest = df.iloc[-1]
+        if latest[['EMA10', 'MA50', 'MA200', 'RSI', 'StochRSI']].isnull().any():
+            return f"⚠️ {hisse}: Hesaplamalar tamamlanamadı (NaN)"
 
-        if any(pd.isna([ema, rsi, stochrsi, ma50, ma200])):
-            return f"⚠️ {hisse}: Hesaplamalar tamamlanamadı (NaN)."
+        # Değerleri al
+        close = latest['Close']
+        ema = latest['EMA10']
+        rsi = latest['RSI']
+        stochrsi = latest['StochRSI']
+        ma50 = latest['MA50']
+        ma200 = latest['MA200']
+        high = latest['High']
 
+        # Sinyal üret
         sinyaller = []
 
         if close > ema and rsi < 70:
@@ -61,7 +58,6 @@ def teknik_analiz(hisse):
             sinyaller.append("✅ MA50 Üstü")
         if close > ma200:
             sinyaller.append("✅ MA200 Üstü")
-
         if stochrsi > 80:
             sinyaller.append("⚠️ StochRSI Yüksek")
         elif stochrsi < 20:
@@ -71,16 +67,3 @@ def teknik_analiz(hisse):
 
     except Exception as e:
         return f"⚠️ {hisse}: Hata - {str(e)}"
-
-# Hisse listesi örneği
-hisseler = ["THYAO.IS", "ASELS.IS", "SISE.IS", "KRDMD.IS"]
-
-# Mesajı oluştur
-simdi = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
-rapor = f"📊 {simdi} SİNYAL RAPORU\n\n"
-
-for hisse in hisseler:
-    rapor += teknik_analiz(hisse) + "\n"
-
-# Mesajı gönder
-telegram_mesaj_gonder(rapor)
