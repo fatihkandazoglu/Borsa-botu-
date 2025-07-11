@@ -18,7 +18,7 @@ def telegram_mesaj_gonder(metin):
 
 def teknik_analiz(hisse):
     try:
-        df = yf.download(hisse, period="6mo", interval="1d")
+        df = yf.download(hisse, period="1y", interval="1d")
         if df.empty or len(df) < 50:
             return f"⚠️ {hisse}: Yetersiz veri"
 
