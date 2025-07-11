@@ -1,58 +1,63 @@
-import requests
 import yfinance as yf
 import pandas as pd
 from datetime import datetime, timedelta
 
-BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
-CHAT_ID = '1608045019'
+# Hisse listesi
+HISSE_LISTESI = ['THYAO.IS', 'SISE.IS', 'ASELS.IS', 'KRDMD.IS', 'TUPRS.IS', 'HEKTS.IS', 'SASA.IS', 'EREGL.IS']
 
-HISSE_LISTESI = ['THYAO.IS', 'SISE.IS', 'ASELS.IS', 'KRDMD.IS']
-
-def telegram_mesaj_gonder(mesaj):
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    payload = {'chat_id': CHAT_ID, 'text': mesaj}
-    requests.post(url, data=payload)
-
-def teknik_analiz(hisse):
+# RSI ve Stokastik RSI fonksiyonu
+def hesapla_teknik_analiz(hisse):
     try:
-        df = yf.download(hisse, period="2mo", interval="1d")
+        df = yf.download(hisse, period="3mo", interval="1d")
         df.dropna(inplace=True)
 
-        if len(df) < 15:
-            return f"⚠️ {hisse} verisi yetersiz."
+        if len(df) < 30:
+            return None
 
         df['EMA'] = df['Close'].ewm(span=10).mean()
 
         delta = df['Close'].diff()
-        gain = delta.where(delta > 0, 0)
-        loss = -delta.where(delta < 0, 0)
-
-        avg_gain = gain.rolling(14).mean()
-        avg_loss = loss.rolling(14).mean()
-
-        rs = avg_gain / avg_loss
+        gain = delta.where(delta > 0, 0).rolling(14).mean()
+        loss = -delta.where(delta < 0, 0).rolling(14).mean()
+        rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
+
+        # Stokastik RSI
+        min_rsi = df['RSI'].rolling(14).min()
+        max_rsi = df['RSI'].rolling(14).max()
+        df['StochRSI'] = (df['RSI'] - min_rsi) / (max_rsi - min_rsi)
 
         close = df['Close'].iloc[-1]
         ema = df['EMA'].iloc[-1]
         rsi = df['RSI'].iloc[-1]
+        stoch = df['StochRSI'].iloc[-1]
 
-        if float(close) > float(ema) and float(rsi) < 70:
-            return f"📈 {hisse}: AL"
-        elif float(close) < float(ema) and float(rsi) > 30:
-            return f"📉 {hisse}: SAT"
-        else:
-            return f"➖ {hisse}: NÖTR"
-
+        # Tavan adayı: EMA üstü, RSI < 70, StochRSI > 0.8
+        if close > ema and rsi < 70 and stoch > 0.8:
+            return {
+                "Hisse": hisse,
+                "Kapanış": round(close, 2),
+                "EMA": round(ema, 2),
+                "RSI": round(rsi, 2),
+                "StochRSI": round(stoch, 2)
+            }
+        return None
     except Exception as e:
-        return f"⚠️ {hisse} verisi alınamadı. Hata: {str(e)}"
+        return None
 
 def main():
-    simdi = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
-    mesajlar = [f"📊 {simdi} GÜNLÜK SİNYALLER"]
+    print(f"📊 {datetime.now().strftime('%d.%m.%Y %H:%M')} TAVAN ADAYLARI")
+    adaylar = []
     for hisse in HISSE_LISTESI:
-        mesajlar.append(teknik_analiz(hisse))
-    telegram_mesaj_gonder("\n".join(mesajlar))
+        sonuc = hesapla_teknik_analiz(hisse)
+        if sonuc:
+            adaylar.append(sonuc)
+
+    if not adaylar:
+        print("⚠️ Uygun tavan adayı bulunamadı.")
+    else:
+        df = pd.DataFrame(adaylar)
+        print(df)
 
 if __name__ == "__main__":
     main()
