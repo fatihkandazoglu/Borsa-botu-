@@ -2,23 +2,21 @@ import yfinance as yf
 import requests
 from datetime import datetime, timedelta
 
-# Telegram bilgileri
 BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
 CHAT_ID = '1608045019'
 
 def telegram_mesaj_gonder(metin):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {'chat_id': CHAT_ID, 'text': metin, 'parse_mode': 'HTML'}
-    r = requests.post(url, data=data)
-    print(f"Telegram yanıtı: {r.status_code} - {r.text}")
+    requests.post(url, data=data)
 
 def teknik_analiz(hisse):
     try:
         df = yf.download(hisse, period="6mo", interval="1d")
+
         if df.empty or len(df) < 50:
             return f"⚠️ <a href='https://finance.yahoo.com/quote/{hisse}'>{hisse}</a>: Veri yetersiz"
 
-        # Teknik indikatör hesaplamaları
         df['EMA10'] = df['Close'].ewm(span=10).mean()
         df['MA50'] = df['Close'].rolling(window=50).mean()
         df['MA200'] = df['Close'].rolling(window=200).mean()
@@ -29,16 +27,16 @@ def teknik_analiz(hisse):
         rs = gain / loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
-        # StochRSI hesaplama (index uyumu hatasız)
         min_rsi = df['RSI'].rolling(14).min()
         max_rsi = df['RSI'].rolling(14).max()
         df['StochRSI'] = ((df['RSI'] - min_rsi) / (max_rsi - min_rsi)) * 100
 
-        df.dropna(inplace=True)  # Tüm göstergeler hazır
+        df.dropna(inplace=True)
+
+        if df.empty:
+            return f"⚠️ <a href='https://finance.yahoo.com/quote/{hisse}'>{hisse}</a>: Tüm göstergeler NaN oldu"
 
         latest = df.iloc[-1]
-        if latest[['EMA10', 'MA50', 'MA200', 'RSI', 'StochRSI']].isnull().any():
-            return f"⚠️ <a href='https://finance.yahoo.com/quote/{hisse}'>{hisse}</a>: Hesaplamalar tamamlanamadı (NaN)"
 
         close = latest['Close']
         ema = latest['EMA10']
@@ -76,7 +74,8 @@ def teknik_analiz(hisse):
 
 if __name__ == "__main__":
     hisseler = ['THYAO.IS', 'SISE.IS', 'ASELS.IS', 'KRDMD.IS']
-    rapor = f"📈 {datetime.utcnow() + timedelta(hours=3):%d.%m.%Y %H:%M} GÜNLÜK SİNYALLER\n\n"
+    simdi = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
+    rapor = f"📉 <b>{simdi} GÜNLÜK SİNYALLER</b>\n\n"
 
     for hisse in hisseler:
         sonuc = teknik_analiz(hisse)
