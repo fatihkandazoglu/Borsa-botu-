@@ -1,7 +1,7 @@
 import requests
 import yfinance as yf
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 
 # TELEGRAM BOT AYARLARI
 BOT_TOKEN = '7502364961:AAHjBdC4JHEi27K7hdGa3MelAir5VXXDtfs'
@@ -13,29 +13,28 @@ HISSE_LISTESI = ['THYAO.IS', 'SISE.IS', 'ASELS.IS', 'KRDMD.IS']
 def telegram_mesaj_gonder(mesaj):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {'chat_id': CHAT_ID, 'text': mesaj}
-    response = requests.post(url, data=payload)
-    print(response.text)
+    requests.post(url, data=payload)
 
 def teknik_analiz(hisse):
     try:
         df = yf.download(hisse, period="2mo", interval="1d")
         df.dropna(inplace=True)
 
-        if df.shape[0] < 15:
+        if len(df) < 15:
             return f"⚠️ {hisse} verisi yetersiz."
 
         df['EMA'] = df['Close'].ewm(span=10).mean()
-
         delta = df['Close'].diff()
-        gain = delta.where(delta > 0, 0).rolling(window=14).mean()
-        loss = -delta.where(delta < 0, 0).rolling(window=14).mean()
-        rs = gain / loss
+        gain = delta.where(delta > 0, 0)
+        loss = -delta.where(delta < 0, 0)
+        avg_gain = gain.rolling(14).mean()
+        avg_loss = loss.rolling(14).mean()
+        rs = avg_gain / avg_loss
         df['RSI'] = 100 - (100 / (1 + rs))
 
-        # Tek bir değer olarak alıyoruz
-        close = float(df['Close'].iloc[-1])
-        ema = float(df['EMA'].iloc[-1])
-        rsi = float(df['RSI'].iloc[-1])
+        close = df['Close'].iloc[-1]
+        ema = df['EMA'].iloc[-1]
+        rsi = df['RSI'].iloc[-1]
 
         if close > ema and rsi < 70:
             return f"📈 {hisse}: AL"
@@ -47,11 +46,14 @@ def teknik_analiz(hisse):
         return f"⚠️ {hisse} verisi alınamadı. Hata: {str(e)}"
 
 def main():
-    simdi = datetime.now().strftime('%d.%m.%Y %H:%M')
+    simdi = (datetime.utcnow() + timedelta(hours=3)).strftime('%d.%m.%Y %H:%M')
     mesajlar = [f"📊 {simdi} GÜNLÜK SİNYALLER"]
+
     for hisse in HISSE_LISTESI:
         mesajlar.append(teknik_analiz(hisse))
-    telegram_mesaj_gonder("\n".join(mesajlar))
+
+    final_mesaj = "\n".join(mesajlar)
+    telegram_mesaj_gonder(final_mesaj)
 
 if __name__ == "__main__":
     main()
