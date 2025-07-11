@@ -13,10 +13,10 @@ jobs:
     - name: Depoyu klonla
       uses: actions/checkout@v3
 
-    - name: Python kur
+    -     - name: Python kur
       uses: actions/setup-python@v4
       with:
-        python-version: '3.10'
+        python-version: '3.10'  # ya da '3.11' olabilir
 
     - name: Gerekli paketleri kur
       run: |
